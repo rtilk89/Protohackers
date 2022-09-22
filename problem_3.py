@@ -67,27 +67,24 @@ async def handle(reader, writer):
         writer.close()
         return await writer.wait_closed()
     else:
-        await LOCK.acquire()
-        await send_current_users_in_room(writer, CONNECTIONS)
-        await notify_new_user_entered(name, CONNECTIONS)
-        CONNECTIONS[name] = writer
-        LOCK.release()
+        async with LOCK:
+            await send_current_users_in_room(writer, CONNECTIONS)
+            await notify_new_user_entered(name, CONNECTIONS)
+            CONNECTIONS[name] = writer
 
     while True:
         try:
             message = await reader.readuntil(b"\n")
             message = message.decode("utf-8").strip()
-            await LOCK.acquire()
-            await send_message_to_all_connections(name, message, CONNECTIONS)
-            LOCK.release()
+            async with LOCK:
+                await send_message_to_all_connections(name, message, CONNECTIONS)
         except Exception as e:
             print(e)
             break
 
-    await LOCK.acquire()
-    CONNECTIONS.pop(name, None)
-    await notify_user_left(name, CONNECTIONS)
-    LOCK.release()
+    async with LOCK:
+        CONNECTIONS.pop(name, None)
+        await notify_user_left(name, CONNECTIONS)
     writer.close()
 
 
