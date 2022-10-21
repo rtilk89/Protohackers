@@ -36,6 +36,7 @@ async def proxy_messages(reader, writer):
         except Exception as e:
             print(e)
             break
+    writer.write_eof()
     writer.close()
     await writer.wait_closed()
 
@@ -43,15 +44,6 @@ async def proxy_messages(reader, writer):
 async def proxy_handler(proxy_reader, proxy_writer):
     # connect to upstream
     upstream_reader, upstream_writer = await asyncio.open_connection(UPSTREAM_HOST, UPSTREAM_PORT)
-    # get welcome message from upstream and write to client
-    message = await upstream_reader.readuntil(b"\n")
-    proxy_writer.write(message)
-    await proxy_writer.drain()
-    # read name
-    name = await proxy_reader.readuntil(b"\n")
-    upstream_writer.write(name)
-    await upstream_writer.drain()
-
     asyncio.gather(proxy_messages(proxy_reader, upstream_writer), proxy_messages(upstream_reader, proxy_writer))
 
 
